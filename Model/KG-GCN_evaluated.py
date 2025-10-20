@@ -8,7 +8,7 @@ from torch_geometric.nn import GCNConv
 import torch
 import torch.nn.functional as F
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, ndcg_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, ndcg_score, average_precision_score, log_loss
 import matplotlib.pyplot as plt
 
 uri = "bolt://localhost:7687"
@@ -90,12 +90,17 @@ y = torch.tensor([1 if is_hama_penyakit(node) else 0 for node in nodes], dtype=t
 data = Data(x=x, edge_index=edge_index, y=y)
 
 # Cross-validation evaluation
-skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-accuracies = []
+skf = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+# accuracies = []
 precisions_k = []
 recalls_k = []
-f1s_k = []
+# f1s_k = []
 ndcgs_k = []
+hits_k = []
+maps = []
+mean_ranks = []
+mrrs = []
+log_losses = []
 k = 20
 
 for fold, (train_idx, test_idx) in enumerate(skf.split(range(len(nodes)), y.numpy())):
@@ -135,43 +140,113 @@ for fold, (train_idx, test_idx) in enumerate(skf.split(range(len(nodes)), y.nump
     f1_k_val = 2 * (precision_k_val * recall_k_val) / (precision_k_val + recall_k_val) if (precision_k_val + recall_k_val) > 0 else 0
     ndcg_k_val = ndcg_score([y_true], [y_score], k=k)
 
-    accuracies.append(accuracy)
+    # Hits@k, MAP
+    hits_k_val = precision_k_val  # Hits@k is equivalent to Precision@k in this binary ranking context
+    map_val = average_precision_score(y_true, y_score)
+
+    # Mean Rank, MRR, Log Loss
+    if np.sum(y_true) > 0:
+        ranks = np.argsort(np.argsort(-y_score)) + 1  # Rank of each item (1-based)
+        mean_rank_val = np.mean(ranks[y_true == 1])  # Mean rank for positive samples
+        mrr_val = np.mean(1.0 / ranks[y_true == 1])  # MRR for positive samples
+    else:
+        mean_rank_val = 0.0
+        mrr_val = 0.0
+    log_loss_val = log_loss(y_true, probs[test_idx])
+
+    # accuracies.append(accuracy)
     precisions_k.append(precision_k_val)
     recalls_k.append(recall_k_val)
-    f1s_k.append(f1_k_val)
+    # f1s_k.append(f1_k_val)
     ndcgs_k.append(ndcg_k_val)
+    hits_k.append(hits_k_val)
+    maps.append(map_val)
+    mean_ranks.append(mean_rank_val)
+    mrrs.append(mrr_val)
+    log_losses.append(log_loss_val)
 
     print(f"  Accuracy: {accuracy:.4f}")
     print(f"  Precision@{k}: {precision_k_val:.4f}")
     print(f"  Recall@{k}: {recall_k_val:.4f}")
     print(f"  F1Score@{k}: {f1_k_val:.4f}")
     print(f"  NDCG@{k}: {ndcg_k_val:.4f}")
+    print(f"  Hits@{k}: {hits_k_val:.4f}")
+    print(f"  MAP: {map_val:.4f}")
+    print(f"  Mean Rank: {mean_rank_val:.4f}")
+    print(f"  MRR: {mrr_val:.4f}")
+    print(f"  Log Loss: {log_loss_val:.4f}")
     print()
 
 # Average metrics across folds
-avg_accuracy = np.mean(accuracies)
+# avg_accuracy = np.mean(accuracies)
 avg_precision_k = np.mean(precisions_k)
 avg_recall_k = np.mean(recalls_k)
-avg_f1_k = np.mean(f1s_k)
+# avg_f1_k = np.mean(f1s_k)
 avg_ndcg_k = np.mean(ndcgs_k)
+avg_hits_k = np.mean(hits_k)
+avg_map = np.mean(maps)
+avg_mean_rank = np.mean(mean_ranks)
+avg_mrr = np.mean(mrrs)
+avg_log_loss = np.mean(log_losses)
 
 print("Cross-Validation Results:")
-print(f"Average Accuracy: {avg_accuracy:.4f} ± {np.std(accuracies):.4f}")
+# print(f"Average Accuracy: {avg_accuracy:.4f} ± {np.std(accuracies):.4f}")
 print(f"Average Precision@{k}: {avg_precision_k:.4f} ± {np.std(precisions_k):.4f}")
 print(f"Average Recall@{k}: {avg_recall_k:.4f} ± {np.std(recalls_k):.4f}")
-print(f"Average F1Score@{k}: {avg_f1_k:.4f} ± {np.std(f1s_k):.4f}")
+# print(f"Average F1Score@{k}: {avg_f1_k:.4f} ± {np.std(f1s_k):.4f}")
 print(f"Average NDCG@{k}: {avg_ndcg_k:.4f} ± {np.std(ndcgs_k):.4f}")
+print(f"Average Hits@{k}: {avg_hits_k:.4f} ± {np.std(hits_k):.4f}")
+print(f"Average MAP: {avg_map:.4f} ± {np.std(maps):.4f}")
+print(f"Average Mean Rank: {avg_mean_rank:.4f} ± {np.std(mean_ranks):.4f}")
+print(f"Average MRR: {avg_mrr:.4f} ± {np.std(mrrs):.4f}")
+print(f"Average Log Loss: {avg_log_loss:.4f} ± {np.std(log_losses):.4f}")
 
-# Visualization
-metrics = ['Accuracy', f'Precision@{k}', f'Recall@{k}', f'F1Score@{k}', f'NDCG@{k}']
-averages = [avg_accuracy, avg_precision_k, avg_recall_k, avg_f1_k, avg_ndcg_k]
-stds = [np.std(accuracies), np.std(precisions_k), np.std(recalls_k), np.std(f1s_k), np.std(ndcgs_k)]
+# Visualization per fold
+metrics = ['Precision@20', 'Recall@20', 'NDCG@20', 'Hits@20', 'MAP', 'MRR', 'Mean Rank', 'Log Loss']
+folds = list(range(1, 11))
 
-plt.figure(figsize=(10, 6))
-plt.bar(metrics, averages, yerr=stds, capsize=5, color='skyblue')
-plt.title('Cross-Validation Evaluation Metrics')
+fig, axes = plt.subplots(2, 4, figsize=(20, 10))
+axes = axes.flatten()
+
+for i, metric in enumerate(metrics):
+    if metric == 'Precision@20':
+        values = precisions_k
+    elif metric == 'Recall@20':
+        values = recalls_k
+    elif metric == 'NDCG@20':
+        values = ndcgs_k
+    elif metric == 'Hits@20':
+        values = hits_k
+    elif metric == 'MAP':
+        values = maps
+    elif metric == 'MRR':
+        values = mrrs
+    elif metric == 'Mean Rank':
+        values = mean_ranks
+    elif metric == 'Log Loss':
+        values = log_losses
+
+    axes[i].plot(folds, values, marker='o', linestyle='-', color='b')
+    axes[i].set_title(f'{metric} per Fold')
+    axes[i].set_xlabel('Fold')
+    axes[i].set_ylabel(metric)
+    axes[i].grid(True)
+
+plt.tight_layout()
+plt.savefig('evaluation_metrics_per_fold.png')
+plt.show()
+
+# Overall average bar plot
+metrics_avg = [f'Precision@{k}', f'Recall@{k}', f'NDCG@{k}', f'Hits@{k}', 'MAP', 'MRR', 'Mean Rank', 'Log Loss']
+averages = [avg_precision_k, avg_recall_k, avg_ndcg_k, avg_hits_k, avg_map, avg_mrr, avg_mean_rank, avg_log_loss]
+stds = [np.std(precisions_k), np.std(recalls_k), np.std(ndcgs_k), np.std(hits_k), np.std(maps), np.std(mrrs), np.std(mean_ranks), np.std(log_losses)]
+
+plt.figure(figsize=(14, 8))
+plt.bar(metrics_avg, averages, yerr=stds, capsize=5, color='skyblue')
+plt.title('Average Cross-Validation Evaluation Metrics for KG-GCN Model (10-Fold)')
 plt.ylabel('Score')
 plt.xticks(rotation=45)
 plt.tight_layout()
-plt.savefig('evaluation_metrics.png')
+plt.savefig('evaluation_metrics_average.png')
 plt.show()
+
