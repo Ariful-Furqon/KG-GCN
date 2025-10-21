@@ -22,11 +22,13 @@ class SimpleGCN(torch.nn.Module):
         super(SimpleGCN, self).__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, 2)  # 2 classes: 0 and 1
+        self.dropout = torch.nn.Dropout(p=0.5)
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
         x = self.conv1(x, edge_index)
         x = F.relu(x)
+        x = self.dropout(x)
         x = self.conv2(x, edge_index)
         return x
 
@@ -101,6 +103,8 @@ maps = []
 mean_ranks = []
 mrrs = []
 log_losses = []
+losses_per_fold = []  # To store training loss values per epoch for each fold
+val_losses_per_fold = []  # To store validation loss values per epoch for each fold
 k = 20
 
 for fold, (train_idx, test_idx) in enumerate(skf.split(range(len(nodes)), y.numpy())):
@@ -108,16 +112,30 @@ for fold, (train_idx, test_idx) in enumerate(skf.split(range(len(nodes)), y.nump
 
     # Create model for each fold
     model = SimpleGCN(in_channels=x.shape[1], hidden_channels=1)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=0.01)  # Added L2 regularization
 
     # Training loop
-    for epoch in range(100):
+    losses = []  # To store training loss for each epoch in this fold
+    val_losses = []  # To store validation loss for each epoch in this fold
+    for epoch in range(10):
         model.train()
         optimizer.zero_grad()
         out = model(data)
         loss = F.cross_entropy(out[train_idx], data.y[train_idx])
+        losses.append(loss.item())
         loss.backward()
         optimizer.step()
+
+        # Compute validation loss
+        model.eval()
+        with torch.no_grad():
+            val_out = model(data)
+            val_loss = F.cross_entropy(val_out[test_idx], data.y[test_idx])
+            val_losses.append(val_loss.item())
+        model.train()
+
+    losses_per_fold.append(losses)
+    val_losses_per_fold.append(val_losses)
 
     # Evaluation
     model.eval()
@@ -144,7 +162,7 @@ for fold, (train_idx, test_idx) in enumerate(skf.split(range(len(nodes)), y.nump
     hits_k_val = precision_k_val  # Hits@k is equivalent to Precision@k in this binary ranking context
     map_val = average_precision_score(y_true, y_score)
 
-    # Mean Rank, MRR, Log Loss
+    # MRR, Log Loss
     if np.sum(y_true) > 0:
         ranks = np.argsort(np.argsort(-y_score)) + 1  # Rank of each item (1-based)
         mean_rank_val = np.mean(ranks[y_true == 1])  # Mean rank for positive samples
@@ -185,7 +203,6 @@ avg_recall_k = np.mean(recalls_k)
 avg_ndcg_k = np.mean(ndcgs_k)
 avg_hits_k = np.mean(hits_k)
 avg_map = np.mean(maps)
-avg_mean_rank = np.mean(mean_ranks)
 avg_mrr = np.mean(mrrs)
 avg_log_loss = np.mean(log_losses)
 
@@ -197,12 +214,11 @@ print(f"Average Recall@{k}: {avg_recall_k:.4f} ± {np.std(recalls_k):.4f}")
 print(f"Average NDCG@{k}: {avg_ndcg_k:.4f} ± {np.std(ndcgs_k):.4f}")
 print(f"Average Hits@{k}: {avg_hits_k:.4f} ± {np.std(hits_k):.4f}")
 print(f"Average MAP: {avg_map:.4f} ± {np.std(maps):.4f}")
-print(f"Average Mean Rank: {avg_mean_rank:.4f} ± {np.std(mean_ranks):.4f}")
 print(f"Average MRR: {avg_mrr:.4f} ± {np.std(mrrs):.4f}")
 print(f"Average Log Loss: {avg_log_loss:.4f} ± {np.std(log_losses):.4f}")
 
 # Visualization per fold
-metrics = ['Precision@20', 'Recall@20', 'NDCG@20', 'Hits@20', 'MAP', 'MRR', 'Mean Rank', 'Log Loss']
+metrics = ['Precision@20', 'Recall@20', 'NDCG@20', 'Hits@20', 'MAP', 'Mean Rank', 'MRR', 'Log Loss']
 folds = list(range(1, 11))
 
 fig, axes = plt.subplots(2, 4, figsize=(20, 10))
@@ -219,10 +235,10 @@ for i, metric in enumerate(metrics):
         values = hits_k
     elif metric == 'MAP':
         values = maps
-    elif metric == 'MRR':
-        values = mrrs
     elif metric == 'Mean Rank':
         values = mean_ranks
+    elif metric == 'MRR':
+        values = mrrs
     elif metric == 'Log Loss':
         values = log_losses
 
@@ -236,17 +252,43 @@ plt.tight_layout()
 plt.savefig('evaluation_metrics_per_fold.png')
 plt.show()
 
-# Overall average bar plot
-metrics_avg = [f'Precision@{k}', f'Recall@{k}', f'NDCG@{k}', f'Hits@{k}', 'MAP', 'MRR', 'Mean Rank', 'Log Loss']
-averages = [avg_precision_k, avg_recall_k, avg_ndcg_k, avg_hits_k, avg_map, avg_mrr, avg_mean_rank, avg_log_loss]
-stds = [np.std(precisions_k), np.std(recalls_k), np.std(ndcgs_k), np.std(hits_k), np.std(maps), np.std(mrrs), np.std(mean_ranks), np.std(log_losses)]
+# Overall average horizontal bar plot for head-to-head comparison
+metrics_avg = [f'Precision@{k}', f'Recall@{k}', f'NDCG@{k}', f'Hits@{k}', 'MAP', 'MRR', 'Log Loss']
+averages = [avg_precision_k, avg_recall_k, avg_ndcg_k, avg_hits_k, avg_map,  avg_mrr, avg_log_loss]
+stds = [np.std(precisions_k), np.std(recalls_k), np.std(ndcgs_k), np.std(hits_k), np.std(maps), np.std(mrrs), np.std(log_losses)]
 
-plt.figure(figsize=(14, 8))
-plt.bar(metrics_avg, averages, yerr=stds, capsize=5, color='skyblue')
+plt.figure(figsize=(12, 8))
+bars = plt.barh(metrics_avg, averages, xerr=stds, capsize=5, color='skyblue', align='center')
 plt.title('Average Cross-Validation Evaluation Metrics for KG-GCN Model (10-Fold)')
-plt.ylabel('Score')
-plt.xticks(rotation=45)
+plt.xlabel('Score')
+plt.grid(axis='x', linestyle='--', alpha=0.7)
+
+# Add value labels on the bars
+for bar, avg, std in zip(bars, averages, stds):
+    plt.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, f'{avg:.4f} ± {std:.4f}', va='bottom', fontsize=10)
+
 plt.tight_layout()
 plt.savefig('evaluation_metrics_average.png')
+plt.show()
+
+# Loss visualization: Training and Testing Loss per Fold
+epochs = list(range(1, 11))
+fig, axes = plt.subplots(5, 2, figsize=(15, 20))  # 5 rows, 2 columns for 10 folds
+axes = axes.flatten()
+
+for fold_idx in range(10):
+    ax = axes[fold_idx]
+    train_losses = losses_per_fold[fold_idx]
+    val_losses = val_losses_per_fold[fold_idx]
+    ax.plot(epochs, train_losses, label='Training Loss', color='blue')
+    ax.plot(epochs, val_losses, label='Validation Loss', color='red')
+    ax.set_title(f'Fold {fold_idx + 1}: Training vs Validation Loss')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.legend()
+    ax.grid(True)
+
+plt.tight_layout()
+plt.savefig('loss_comparison_per_fold.png')
 plt.show()
 
