@@ -273,7 +273,7 @@ plt.show()
 
 # Loss visualization: Training and Testing Loss per Fold
 epochs = list(range(1, 11))
-fig, axes = plt.subplots(5, 2, figsize=(15, 20))  # 5 rows, 2 columns for 10 folds
+fig, axes = plt.subplots(2, 5, figsize=(20, 10))  # 2 rows, 5 columns for 10 folds
 axes = axes.flatten()
 
 for fold_idx in range(10):
