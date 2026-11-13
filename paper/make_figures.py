@@ -83,7 +83,7 @@ def fold_metrics(m, r):
 
 vals = [fold_metrics(m, r) for m, r in FOLDS]
 fig, axes = plt.subplots(2, 2, figsize=(TW, 3.6)); axes = axes.ravel()
-titles = ["AP", "normalised MRR", "NDCG", "mean rank"]
+titles = ["AP", "normalised MRR$^{+}$", "NDCG", "mean rank"]
 x = np.arange(1, 11)
 for j, ax in enumerate(axes):
     o = np.array([v[0][j] for v in vals]); lo = np.array([v[1][j] for v in vals]); hi = np.array([v[2][j] for v in vals])
