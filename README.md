@@ -83,3 +83,13 @@ Proposition 6.2 of the manuscript.
 
 All structure-based methods are close to random. Symptom-conditioned diagnosis needs a larger
 graph or textual symptom features.
+
+## License
+
+- **Code**: [MIT License](LICENSE).
+- **Ontology** (`Ontology/`): [Creative Commons Attribution 4.0 International (CC BY 4.0)](Ontology/LICENSE).
+  When using the ontology, please cite M. A. Furqon and S. Bukhori, *Knowledge graph
+  construction for rice pests and diseases*, Int. J. Artif. Intell. Res. 7 (2023), no. 1, 88–97.
+
+Copyright © 2025 Muhammad Ariful Furqon, Rizky Alfanio Atmoko, Kunny Masrukhati, Qurrota A'yuni
+Ar Ruhimat.
