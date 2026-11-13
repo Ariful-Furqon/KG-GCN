@@ -99,7 +99,7 @@ fig.legend([Line2D([], [], color=BAND, lw=5), Line2D([], [], color=BLUE, ls="", 
            ["attainable range (Prop. 4.3)", "KG-GCN (observed)"],
            loc="lower center", ncol=2, frameon=False, fontsize=8, bbox_to_anchor=(0.5, -0.01))
 fig.tight_layout(rect=(0, 0.06, 1, 1), w_pad=1.0, h_pad=0.8)
-fig.savefig("fig4_per_fold.pdf"); plt.close(fig)
+fig.savefig("fig3_per_fold.pdf"); plt.close(fig)
 
 print("P@k", np.round(obs[[0, 2, 4, 9, 19], 0], 4), "R@k", np.round(obs[[0, 2, 4, 9, 19], 1], 4),
       "NDCG@k", np.round(obs[[0, 2, 4, 9, 19], 2], 4))

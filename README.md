@@ -89,7 +89,7 @@ graph or textual symptom features.
 
 ```bash
 cd paper
-python make_figures.py   # writes fig2_metrics_vs_k.pdf and fig4_per_fold.pdf
+python make_figures.py   # writes fig2_metrics_vs_k.pdf and fig3_per_fold.pdf
 ```
 
 The per-fold rank configurations hard-coded in the script reproduce every metric reported by
