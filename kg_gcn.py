@@ -290,7 +290,7 @@ for i, metric in enumerate(metrics):
     axes[i].grid(True)
 
 plt.tight_layout()
-plt.savefig('evaluation_metrics_per_fold.png')
+plt.savefig('results/figures/evaluation_metrics_per_fold.png')
 plt.show()
 
 # Overall average horizontal bar plot for head-to-head comparison (for k=10, best performing k)
@@ -313,7 +313,7 @@ for bar, avg, std in zip(bars, averages, stds):
     plt.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, f'{avg:.4f} ± {std:.4f}', va='bottom', fontsize=10)
 
 plt.tight_layout()
-plt.savefig('evaluation_metrics_average.png')
+plt.savefig('results/figures/evaluation_metrics_average.png')
 plt.show()
 
 # Loss visualization: Training and Testing Loss per Fold
@@ -334,7 +334,7 @@ for fold_idx in range(10):
     ax.grid(True)
 
 plt.tight_layout()
-plt.savefig('loss_comparison_per_fold.png')
+plt.savefig('results/figures/loss_comparison_per_fold.png')
 plt.show()
 
 # New visualization: Metrics vs k
@@ -356,6 +356,6 @@ plt.legend()
 plt.grid(True)
 plt.xticks(ks)
 plt.tight_layout()
-plt.savefig('metrics_vs_k.png')
+plt.savefig('results/figures/metrics_vs_k.png')
 plt.show()
 

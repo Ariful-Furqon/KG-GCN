@@ -13,25 +13,24 @@ The knowledge graph links rice symptoms (*Gejala*) to pests (*HamaPadi*) and dis
 | Path | Contents |
 |---|---|
 | `Ontology/OntologiHamaPenyakitPadi_v1.1.rdf` | Source ontology: 84 vertices (43 pests/diseases, 41 symptoms), 136 arcs |
-| `Model/KG-GCN_evaluated.py` | Original experiment: Neo4j → Node2Vec → 3-layer GCN, stratified 10-fold CV. Produces the manuscript results |
-| `Model/KG-GCN_testing.py`, `Model/KG-GCN.ipynb` | Earlier development versions |
-| `Model/Ref/` | Earlier exploratory notebooks |
+| `kg_gcn.py` | Main experiment: Neo4j → Node2Vec → 3-layer GCN, stratified 10-fold CV. Produces the manuscript results |
+| `results/figures/` | Figures produced by `kg_gcn.py` |
 | `experiments/node_classification.py` | Re-implementation from the RDF file (no Neo4j), ablations and baselines |
 | `experiments/link_prediction.py` | Symptom-conditioned diagnosis posed as link prediction |
 | `experiments/results/` | Saved outputs of the two experiment scripts |
 | `paper/make_figures.py` | Generates Figures 2 and 3 of the manuscript from the per-fold rank configurations |
-| `*.png` | Figures produced by `Model/KG-GCN_evaluated.py` |
 
-## Running the original experiment
+## Running the main experiment
 
-The original script reads the graph from a Neo4j instance into which the ontology has been
-imported. Credentials are read from environment variables:
+`kg_gcn.py` reads the graph from a Neo4j instance into which the ontology has been imported.
+Credentials are read from environment variables. Run it from the repository root; the figures
+are written to `results/figures/`.
 
 ```bash
 export NEO4J_URI=bolt://localhost:7687   # optional, this is the default
 export NEO4J_USER=neo4j                  # optional, this is the default
 export NEO4J_PASSWORD=...                # required
-python Model/KG-GCN_evaluated.py
+python kg_gcn.py
 ```
 
 Dependencies: `neo4j`, `pandas`, `numpy`, `networkx`, `node2vec`, `torch`, `torch_geometric`,
@@ -69,9 +68,10 @@ with, the Neo4j/PyG pipeline.
 | Baseline: MLP on Node2Vec, no graph (B2) | 0.993 | 0.922 | 0.707 | 0% |
 
 The graph is strongly heterophilous (edge homophily 11/136 ≈ 0.08), and the class of a vertex
-is determined, with one exception, by its in-degree in the message direction. A layer with
-separate self and neighbour weights therefore separates the classes, but so does the one-line
-in-degree rule. See Proposition 6.1 of the manuscript.
+is determined by its in-degree in the message direction, not counting self-arcs. The single
+error of B1 is a symptom whose only in-arc is a self-arc. A layer with separate self and
+neighbour weights therefore separates the classes, but so does the one-line in-degree rule. See
+Proposition 6.2 of the manuscript.
 
 ### Link prediction (3 seeds × 10 folds, 43 candidates per query)
 
@@ -93,4 +93,5 @@ python make_figures.py   # writes fig2_metrics_vs_k.pdf and fig3_per_fold.pdf
 ```
 
 The per-fold rank configurations hard-coded in the script reproduce every metric reported by
-`Model/KG-GCN_evaluated.py` to four decimal places.
+`kg_gcn.py` to four decimal places; Lemma 6.1 of the manuscript shows that they are uniquely
+determined by the recorded average precision.
