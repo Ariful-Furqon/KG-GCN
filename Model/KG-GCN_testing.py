@@ -1,3 +1,4 @@
+import os
 from neo4j import GraphDatabase
 import pandas as pd
 import numpy as np
@@ -8,9 +9,9 @@ from torch_geometric.nn import GCNConv
 import torch
 import torch.nn.functional as F
 
-uri = "bolt://localhost:7687"
-username = "neo4j"
-password = "***REMOVED***"
+uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+username = os.environ.get("NEO4J_USER", "neo4j")
+password = os.environ["NEO4J_PASSWORD"]  # set NEO4J_PASSWORD before running; never commit credentials
 
 driver = GraphDatabase.driver(uri, auth=(username, password))
 

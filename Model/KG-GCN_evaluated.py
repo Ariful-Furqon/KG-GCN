@@ -1,3 +1,5 @@
+import copy
+import os
 from neo4j import GraphDatabase
 import pandas as pd
 import numpy as np
@@ -11,11 +13,14 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, ndcg_score, average_precision_score, log_loss
 import matplotlib.pyplot as plt
 
-uri = "bolt://localhost:7687"
-username = "neo4j"
-password = "***REMOVED***"
+uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+username = os.environ.get("NEO4J_USER", "neo4j")
+password = os.environ["NEO4J_PASSWORD"]  # set NEO4J_PASSWORD before running; never commit credentials
 
 driver = GraphDatabase.driver(uri, auth=(username, password))
+
+# False reproduces the manuscript results exactly; True fixes the early-stopping checkpoint copy.
+RESTORE_BEST_COPY = False
 
 class SimpleGCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels):
@@ -150,7 +155,11 @@ for fold, (train_idx, test_idx) in enumerate(skf.split(range(len(nodes)), y.nump
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
-            best_model_state = model.state_dict()
+            # NOTE: state_dict() returns references to the live tensors, so without a copy the
+            # "best" state is overwritten by later optimiser steps and the final weights are used.
+            # The results reported in the PJMS manuscript were produced with the uncopied version
+            # (RESTORE_BEST_COPY = False). Set it to True to restore the true best checkpoint.
+            best_model_state = copy.deepcopy(model.state_dict()) if RESTORE_BEST_COPY else model.state_dict()
         else:
             patience_counter += 1
             if patience_counter >= patience:
