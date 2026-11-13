@@ -18,7 +18,6 @@ The knowledge graph links rice symptoms (*Gejala*) to pests (*HamaPadi*) and dis
 | `experiments/node_classification.py` | Re-implementation from the RDF file (no Neo4j), ablations and baselines |
 | `experiments/link_prediction.py` | Symptom-conditioned diagnosis posed as link prediction |
 | `experiments/results/` | Saved outputs of the two experiment scripts |
-| `paper/make_figures.py` | Generates Figures 2 and 3 of the manuscript from the per-fold rank configurations |
 
 ## Running the main experiment
 
@@ -84,14 +83,3 @@ Proposition 6.2 of the manuscript.
 
 All structure-based methods are close to random. Symptom-conditioned diagnosis needs a larger
 graph or textual symptom features.
-
-## Manuscript figures
-
-```bash
-cd paper
-python make_figures.py   # writes fig2_metrics_vs_k.pdf and fig3_per_fold.pdf
-```
-
-The per-fold rank configurations hard-coded in the script reproduce every metric reported by
-`kg_gcn.py` to four decimal places; Lemma 6.1 of the manuscript shows that they are uniquely
-determined by the recorded average precision.
